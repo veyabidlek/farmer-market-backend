@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from schemas import ProductCreate, FarmerCreate, LoginRequest, FarmerResponse
+from schemas import ProductCreate, FarmerCreate, LoginRequest, FarmerResponse, OrderResponse
 from crud import create_product, get_farmer_products, update_product, delete_product, create_farmer, authenticate_user, get_farmer_by_user_id, get_product_by_id
 from database import get_db
 from dependencies import create_access_token, get_current_user
-from models import User
+from models import User, OrderItem, Order
+from typing import List
 
 router = APIRouter()
 
@@ -69,3 +70,26 @@ def delete_product(product_id: int, db: Session = Depends(get_db),  current_user
     if product_for_update.farmer_id != farmer.id:
         raise HTTPException(status_code=403, detail="You are not owner of the product")
     return delete_product(db, product_id)
+
+
+@router.get("/orders", response_model=List[OrderResponse])
+def get_farmer_orders(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    farmer = get_farmer_by_user_id(db, current_user.id)
+    if not farmer:
+        raise HTTPException(status_code=403, detail="User is not a farmer")
+    orders = db.query(Order).join(OrderItem).filter(OrderItem.product.has(farmer_id=farmer.id)).all()
+    return orders
+
+
+@router.put("/orders/{id}/status", response_model=OrderResponse)
+def update_order_status(id: int, status: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    order = db.query(Order).filter(Order.id == id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if current_user.is_admin or (current_user.is_farmer and order.items[0].product.farmer.user_id == current_user.id):
+        order.status = status
+        db.commit()
+        db.refresh(order)
+        return order
+    raise HTTPException(status_code=403, detail="Unauthorized to update order status")

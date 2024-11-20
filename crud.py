@@ -1,6 +1,12 @@
 from sqlalchemy.orm import Session
-from models import User, Farmer, Product, Farm, Buyer, Category
-from schemas import FarmerCreate, BuyerCreate
+from models import User, Farmer, Product, Farm, Buyer, Category, Order, OrderItem
+from schemas import (
+    UserCreate,
+    BuyerCreate,
+    FarmerCreate,
+    ProductCreate,
+    OrderCreate
+)
 
 
 # User Operations
@@ -14,7 +20,7 @@ def create_user(db: Session, user_data):
 
 def authenticate_user(db: Session, email: str, password: str):
     user = db.query(User).filter(User.email == email).first()
-    if user and user.password == password:  # Replace with password hashing logic
+    if user and user.password == password:
         return user
     return None
 
@@ -92,7 +98,17 @@ def get_buyer_by_user_id(db: Session, user_id: int):
 
 # Admin Operations
 def get_pending_farmers(db: Session):
-    return db.query(Farmer).filter(Farmer.pending == True).all()
+    results = db.query(Farmer, User).join(User).filter(Farmer.pending == True).all()
+
+    return [
+        {
+            "farmer_id": farmer.id,
+            "user_id": user.id,
+            "email": user.email,
+            "pending": farmer.pending
+        }
+        for farmer, user in results
+    ]
 
 
 def approve_farmer(db: Session, farmer_id: int):
@@ -178,6 +194,12 @@ def get_user_by_email(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()
 
 
+def get_user_by_id(db: Session, user_id: int):
+    """
+    Retrieves a user by their ID.
+    """
+    return db.query(User).filter(User.id == user_id).first()
+
 def get_available_products(db: Session):
     """
     Fetch all available products.
@@ -228,3 +250,32 @@ def delete_user(db: Session, user_id: int):
         return
     db.delete(user)
     db.commit()
+
+
+def get_order_by_id(db: Session, order_id: int):
+    return db.query(Order).filter(Order.id == order_id).first()
+
+
+def create_order(db: Session, order_data: OrderCreate):
+    order = Order(
+        buyer_id=order_data.buyer_id,
+        date=order_data.date,
+        status='pending',
+        amount=order_data.amount
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    for item in order_data.items:
+        order_item = OrderItem(
+            order_id=order.id,
+            product_id=item.product_id,
+            quantity=item.quantity,
+            price=item.price
+        )
+        db.add(order_item)
+    
+    db.commit()
+    db.refresh(order)
+    return order

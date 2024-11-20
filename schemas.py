@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime
 
 
 # User schemas
@@ -78,3 +79,59 @@ class CategoryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class OrderItemCreate(BaseModel):
+    product_id: int
+    quantity: int
+    price: float
+
+
+class OrderCreate(BaseModel):
+    buyer_id: Optional[int] = None
+    date: datetime
+    amount: float
+    items: List[OrderItemCreate]
+
+
+class OrderItemResponse(BaseModel):
+    id: int
+    product_id: int
+    quantity: int
+    price: float
+
+    class Config:
+        from_attributes = True
+
+
+class OrderResponse(BaseModel):
+    id: int
+    buyer_id: int
+    date: datetime
+    status: str
+    amount: float
+    items: List[OrderItemResponse]
+
+    class Config:
+        from_attributes = True
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    is_admin: bool
+
+    class Config:
+        from_attributes = True
+
+
+class PaymentRequest(BaseModel):
+    order_id: int
+    amount: float
+    payment_method: str
+    payment_reference: Optional[str] = None

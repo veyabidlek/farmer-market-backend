@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from crud import get_available_products, search_products, filter_products, create_buyer, authenticate_user, get_buyer_by_user_id, get_product_by_id
+from crud import get_available_products, search_products, filter_products, create_buyer, authenticate_user, get_buyer_by_user_id, get_product_by_id, create_order
 from database import get_db
-from schemas import BuyerCreate, LoginRequest, BuyerResponse, ProductResponse
+from schemas import BuyerCreate, LoginRequest, BuyerResponse, ProductResponse, OrderResponse, OrderCreate
 from dependencies import create_access_token, get_current_user
 from models import User
 from typing import List, Optional
@@ -55,3 +55,21 @@ def search_products_endpoint(query: str, db: Session = Depends(get_db)):
 @router.get("/products/filter")
 def filter_products_endpoint(price_range: Optional[str] = None, category: Optional[int] = None, db: Session = Depends(get_db)):
     return filter_products(db, price_range, category)
+
+
+@router.post("/orders", response_model=OrderResponse)
+def place_order(order_data: OrderCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    buyer = get_buyer_by_user_id(db, current_user.id)
+    if not buyer:
+        raise HTTPException(status_code=403, detail="User is not a buyer")
+    order_data.buyer_id = buyer.id
+    order = create_order(db, order_data)
+    return order
+
+
+@router.get("/orders", response_model=List[OrderResponse])
+def get_buyer_orders(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    buyer = get_buyer_by_user_id(db, current_user.id)
+    if not buyer:
+        raise HTTPException(status_code=403, detail="User is not a buyer")
+    return buyer.orders

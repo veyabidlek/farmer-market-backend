@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from crud import get_pending_farmers, approve_farmer, reject_farmer, disable_user, enable_user, authenticate_user, list_non_admin_users, delete_user
+from crud import get_pending_farmers, approve_farmer, reject_farmer, disable_user, enable_user, authenticate_user, list_non_admin_users, delete_user, get_user_by_id
 from database import get_db
 from schemas import LoginRequest, UserResponse
 from dependencies import create_access_token, get_current_user
@@ -45,6 +45,13 @@ def list_users(db: Session = Depends(get_db),  current_user: User = Depends(get_
     if not current_user.is_admin:
         raise HTTPException("You are not admin")
     return list_non_admin_users(db)
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 
 @router.delete("/users/{user_id}")
