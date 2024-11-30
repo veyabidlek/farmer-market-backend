@@ -63,8 +63,11 @@ class Product(Base):
     quantity = Column(Integer, nullable=False)
     description = Column(Text, nullable=True)
     category_id = Column(Integer, ForeignKey('categories.id'))
+    image_url = Column(String(255), nullable=True)  # New column for image URL
+
     category = relationship('Category', back_populates='products')
     farmer = relationship('Farmer', back_populates='products')
+
 
 
 class Order(Base):

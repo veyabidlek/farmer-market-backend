@@ -62,6 +62,7 @@ class BuyerResponse(BaseModel):
 
 
 class ProductCreate(BaseModel):
+    image: str  
     name: str
     price: float
     quantity: int
@@ -69,8 +70,13 @@ class ProductCreate(BaseModel):
     category_id: int
 
 
+
 class ProductResponse(ProductCreate):
     farmer: FarmerResponse
+
+    class Config:
+        orm_mode = True  # Ensures compatibility with SQLAlchemy models
+
 
 
 class CategoryResponse(BaseModel):
