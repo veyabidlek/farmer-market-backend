@@ -28,6 +28,11 @@ def authenticate_user(db: Session, email: str, password: str):
 def get_current_user(db: Session, user_id: int):
     return db.query(User).filter(User.id == user_id).first()
 
+def get_user_by_id(db: Session, user_id: int):
+    """
+    Retrieves a user by their ID.
+    """
+    return db.query(User).filter(User.id == user_id).first()
 
 def create_farmer(db: Session, farmer_data: FarmerCreate):
     farm_data = {
@@ -193,12 +198,6 @@ def get_user_by_email(db: Session, email: str):
     """
     return db.query(User).filter(User.email == email).first()
 
-
-def get_user_by_id(db: Session, user_id: int):
-    """
-    Retrieves a user by their ID.
-    """
-    return db.query(User).filter(User.id == user_id).first()
 
 def get_available_products(db: Session):
     """

@@ -121,14 +121,14 @@ class Token(BaseModel):
     token_type: str
 
 
-class UserResponse(BaseModel):
+class UserResponse(UserBase):
     id: int
-    email: str
     is_admin: bool
+    is_buyer: bool
+    is_farmer: bool
 
     class Config:
         from_attributes = True
-
 
 class PaymentRequest(BaseModel):
     order_id: int

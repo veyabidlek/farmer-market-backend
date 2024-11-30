@@ -19,6 +19,13 @@ def login_admin(login_request: LoginRequest, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+@router.get("/users/{user_id}", response_model=UserResponse)
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
 @router.get("/farmers/pending")
 def list_pending_farmers(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not current_user.is_admin:
@@ -45,6 +52,7 @@ def list_users(db: Session = Depends(get_db),  current_user: User = Depends(get_
     if not current_user.is_admin:
         raise HTTPException("You are not admin")
     return list_non_admin_users(db)
+
 
 @router.get("/users/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db)):
