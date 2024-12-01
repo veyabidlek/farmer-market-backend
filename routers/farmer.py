@@ -1,7 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from schemas import ProductCreate, FarmerCreate, LoginRequest, FarmerResponse, OrderResponse
-from crud import create_product, get_farmer_products, update_product, delete_product, create_farmer, authenticate_user, get_farmer_by_user_id, get_product_by_id
+from crud import (
+    create_product,
+    get_farmer_products,
+    update_product,
+    delete_product as crud_delete_product,  # Renamed import
+    create_farmer,
+    authenticate_user,
+    get_farmer_by_user_id,
+    get_product_by_id
+)
 from database import get_db
 from dependencies import create_access_token, get_current_user
 from models import User, OrderItem, Order
@@ -64,12 +73,19 @@ def update_product_details(product_id: int, product: ProductCreate, db: Session 
 
 
 @router.delete("/products/{product_id}")
-def delete_product(product_id: int, db: Session = Depends(get_db),  current_user: User = Depends(get_current_user)):
+def remove_product(product_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     farmer = get_farmer_by_user_id(db, current_user.id)
-    product_for_update = get_product_by_id(db, product_id)
-    if product_for_update.farmer_id != farmer.id:
+    if not farmer:
+        raise HTTPException(status_code=403, detail="User is not farmer")
+        
+    product_for_delete = get_product_by_id(db, product_id)
+    if not product_for_delete:
+        raise HTTPException(status_code=404, detail="Product not found")
+        
+    if product_for_delete.farmer_id != farmer.id:
         raise HTTPException(status_code=403, detail="You are not owner of the product")
-    return delete_product(db, product_id)
+        
+    return crud_delete_product(db, product_id)
 
 
 @router.get("/orders", response_model=List[OrderResponse])
