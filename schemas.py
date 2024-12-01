@@ -62,7 +62,7 @@ class BuyerResponse(BaseModel):
 
 
 class ProductCreate(BaseModel):
-    image: str  
+    image_url: str  
     name: str
     price: float
     quantity: int
