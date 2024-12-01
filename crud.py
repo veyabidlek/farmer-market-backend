@@ -1,5 +1,5 @@
-from sqlalchemy.orm import Session
-from models import User, Farmer, Product, Farm, Buyer, Category, Order, OrderItem
+from sqlalchemy.orm import Session, joinedload
+from models import User, Farmer, Product, Farm, Buyer, Category, Order, OrderItem, Conversation, Message
 from schemas import (
     UserCreate,
     BuyerCreate,
@@ -7,7 +7,7 @@ from schemas import (
     ProductCreate,
     OrderCreate
 )
-
+from datetime import datetime
 
 # User Operations
 def create_user(db: Session, user_data):
@@ -17,21 +17,16 @@ def create_user(db: Session, user_data):
     db.refresh(new_user)
     return new_user
 
-
 def authenticate_user(db: Session, email: str, password: str):
     user = db.query(User).filter(User.email == email).first()
     if user and user.password == password:
         return user
     return None
 
-
 def get_current_user(db: Session, user_id: int):
     return db.query(User).filter(User.id == user_id).first()
 
 def get_user_by_id(db: Session, user_id: int):
-    """
-    Retrieves a user by their ID.
-    """
     return db.query(User).filter(User.id == user_id).first()
 
 def create_farmer(db: Session, farmer_data: FarmerCreate):
@@ -47,25 +42,20 @@ def create_farmer(db: Session, farmer_data: FarmerCreate):
     db.add(user)
     db.flush()
 
-    # Create and save the Farmer instance
     farmer = Farmer(user_id=user.id)
     db.add(farmer)
     db.flush()
 
-    # Create and save the Farm instance
     farm = Farm(farmer_id=farmer.id, **farm_data)
     db.add(farm)
 
-    # Commit the transaction
     db.commit()
 
-    # Refresh the instances to reflect the database state
     db.refresh(user)
     db.refresh(farmer)
     db.refresh(farm)
 
     return {"user": user, "farmer": farmer, "farm": farm}
-
 
 def create_buyer(db: Session, buyer_data: BuyerCreate):
     user_data = buyer_data.dict()
@@ -90,21 +80,16 @@ def create_buyer(db: Session, buyer_data: BuyerCreate):
 
     return {"user": user, "buyer": buyer}
 
-
 def get_farmer_by_user_id(db: Session, user_id: int):
-    farmer = db.query(Farmer).filter(Farmer.user_id==user_id).first()
-    return farmer
-
+    return db.query(Farmer).filter(Farmer.user_id == user_id).first()
 
 def get_buyer_by_user_id(db: Session, user_id: int):
-    buyer = db.query(Buyer).filter(Buyer.user_id==user_id).first()
-    return buyer
+    return db.query(Buyer).filter(Buyer.user_id == user_id).first()
 
 
 # Admin Operations
 def get_pending_farmers(db: Session):
     results = db.query(Farmer, User).join(User).filter(Farmer.pending == True).all()
-
     return [
         {
             "farmer_id": farmer.id,
@@ -115,7 +100,6 @@ def get_pending_farmers(db: Session):
         for farmer, user in results
     ]
 
-
 def approve_farmer(db: Session, farmer_id: int):
     farmer = db.query(Farmer).filter(Farmer.id == farmer_id).first()
     if farmer:
@@ -125,7 +109,6 @@ def approve_farmer(db: Session, farmer_id: int):
         return farmer
     return None
 
-
 def reject_farmer(db: Session, farmer_id: int, reason: str):
     farmer = db.query(Farmer).filter(Farmer.id == farmer_id).first()
     if farmer:
@@ -133,7 +116,6 @@ def reject_farmer(db: Session, farmer_id: int, reason: str):
         db.commit()
         return {"message": f"Farmer rejected: {reason}"}
     return None
-
 
 def disable_user(db: Session, user_id: int):
     user = db.query(User).filter(User.id == user_id).first()
@@ -144,7 +126,6 @@ def disable_user(db: Session, user_id: int):
         return user
     return None
 
-
 def enable_user(db: Session, user_id: int):
     user = db.query(User).filter(User.id == user_id).first()
     if user:
@@ -154,7 +135,6 @@ def enable_user(db: Session, user_id: int):
         return user
     return None
 
-
 # Product Operations
 def create_product(db: Session, product_data):
     new_product = Product(**product_data)
@@ -163,14 +143,11 @@ def create_product(db: Session, product_data):
     db.refresh(new_product)
     return new_product
 
-
 def get_farmer_products(db: Session, farmer_id: int):
     return db.query(Product).filter(Product.farmer_id == farmer_id).all()
 
-
 def get_product_by_id(db: Session, product_id: int):
     return db.query(Product).filter(Product.id == product_id).first()
-
 
 def update_product(db: Session, product_id: int, product_data):
     product = get_product_by_id(db, product_id)
@@ -182,7 +159,6 @@ def update_product(db: Session, product_id: int, product_data):
         return product
     return None
 
-
 def delete_product(db: Session, product_id: int):
     product = db.query(Product).filter(Product.id == product_id).first()
     if product:
@@ -191,57 +167,35 @@ def delete_product(db: Session, product_id: int):
         return {"message": "Product deleted successfully"}
     return None
 
-
 def get_user_by_email(db: Session, email: str):
-    """
-    Fetch a user by their email address.
-    """
     return db.query(User).filter(User.email == email).first()
 
-
 def get_available_products(db: Session):
-    """
-    Fetch all available products.
-    """
     return db.query(Product).filter(Product.quantity > 0).all()
 
-
 def search_products(db: Session, query: str):
-    """
-    Search for products by name.
-    """
     return db.query(Product).filter(Product.name.ilike(f"%{query}%")).all()
 
-
 def filter_products(db: Session, price_range: str = None, category_id: int = None, farm_location: str = None):
-    """
-    Filter products by price range, category, and farm location.
-    """
     query = db.query(Product)
 
-    # Apply price range filter
     if price_range:
         min_price, max_price = map(float, price_range.split("-"))
         query = query.filter(Product.price >= min_price, Product.price <= max_price)
 
-    # Apply category filter
     if category_id:
         query = query.filter(Product.category_id == category_id)
 
-    # Apply farm location filter
     if farm_location:
         query = query.join(Product.farmer).filter(Product.farmer.address.ilike(f"%{farm_location}%"))
 
     return query.all()
 
-
 def list_categories(db: Session):
     return db.query(Category).all()
 
-
 def list_non_admin_users(db: Session):
     return db.query(User).filter(User.is_admin == False).all()
-
 
 def delete_user(db: Session, user_id: int):
     user = db.query(User).filter(User.id == user_id).first()
@@ -250,10 +204,8 @@ def delete_user(db: Session, user_id: int):
     db.delete(user)
     db.commit()
 
-
 def get_order_by_id(db: Session, order_id: int):
     return db.query(Order).filter(Order.id == order_id).first()
-
 
 def create_order(db: Session, order_data: OrderCreate):
     order = Order(
@@ -278,3 +230,45 @@ def create_order(db: Session, order_data: OrderCreate):
     db.commit()
     db.refresh(order)
     return order
+
+# Chat operations
+def get_conversation(db: Session, conversation_id: int):
+    return db.query(Conversation).filter(Conversation.id == conversation_id).first()
+
+def get_or_create_conversation(db: Session, farmer_id: int, buyer_id: int):
+    conversation = db.query(Conversation).filter(
+        Conversation.farmer_id == farmer_id,
+        Conversation.buyer_id == buyer_id
+    ).first()
+    if conversation:
+        return conversation
+    else:
+        conversation = Conversation(farmer_id=farmer_id, buyer_id=buyer_id)
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+        return conversation
+
+def create_message(db: Session, conversation_id: int, sender_id: int, content: str):
+    message = Message(
+        conversation_id=conversation_id,
+        sender_id=sender_id,
+        content=content,
+        timestamp=datetime.utcnow()
+    )
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    return message
+
+def get_conversations_for_user(db: Session, user_id: int):
+    user = get_user_by_id(db, user_id)
+    if user.is_farmer:
+        farmer = get_farmer_by_user_id(db, user_id)
+        conversations = db.query(Conversation).options(joinedload(Conversation.messages)).filter(Conversation.farmer_id == farmer.id).all()
+    elif user.is_buyer:
+        buyer = get_buyer_by_user_id(db, user_id)
+        conversations = db.query(Conversation).options(joinedload(Conversation.messages)).filter(Conversation.buyer_id == buyer.id).all()
+    else:
+        conversations = []
+    return conversations

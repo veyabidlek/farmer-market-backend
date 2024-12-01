@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Text, Boolean, DECIMAL, TIMESTAMP
 from sqlalchemy.orm import relationship
 from database import Base
-
+from datetime import datetime
 
 class User(Base):
     __tablename__ = 'users'
@@ -11,11 +11,12 @@ class User(Base):
     password = Column(Text, nullable=False)
     phone_number = Column(String(20), nullable=True)
     is_admin = Column(Boolean, nullable=False, default=False)
-    farmers = relationship('Farmer', back_populates='user')
-    buyers = relationship('Buyer', back_populates='user')
     is_buyer = Column(Boolean, default=False)
     is_farmer = Column(Boolean, default=False)
 
+    farmers = relationship('Farmer', back_populates='user')
+    buyers = relationship('Buyer', back_populates='user')
+    sent_messages = relationship('Message', back_populates='sender')
 
 class Farmer(Base):
     __tablename__ = 'farmers'
@@ -25,7 +26,7 @@ class Farmer(Base):
     farms = relationship('Farm', back_populates='farmer')
     products = relationship('Product', back_populates='farmer')
     pending = Column(Boolean, default=True)
-
+    conversations = relationship('Conversation', back_populates='farmer')
 
 class Buyer(Base):
     __tablename__ = 'buyers'
@@ -35,7 +36,7 @@ class Buyer(Base):
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'))
     user = relationship('User', back_populates='buyers')
     orders = relationship('Order', back_populates='buyer')
-
+    conversations = relationship('Conversation', back_populates='buyer')
 
 class Farm(Base):
     __tablename__ = 'farms'
@@ -46,13 +47,11 @@ class Farm(Base):
     government_id = Column(Integer, nullable=True)
     farmer = relationship('Farmer', back_populates='farms')
 
-
 class Category(Base):
     __tablename__ = 'categories'
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     products = relationship('Product', back_populates='category')
-
 
 class Product(Base):
     __tablename__ = 'products'
@@ -63,12 +62,10 @@ class Product(Base):
     quantity = Column(Integer, nullable=False)
     description = Column(Text, nullable=True)
     category_id = Column(Integer, ForeignKey('categories.id'))
-    image_url = Column(String(255), nullable=True)  # New column for image URL
+    image_url = Column(String(255), nullable=True)
 
     category = relationship('Category', back_populates='products')
     farmer = relationship('Farmer', back_populates='products')
-
-
 
 class Order(Base):
     __tablename__ = 'orders'
@@ -82,7 +79,6 @@ class Order(Base):
     payments = relationship('Payment', back_populates='order')
     deliveries = relationship('Delivery', back_populates='order')
 
-
 class OrderItem(Base):
     __tablename__ = 'orderItems'
     id = Column(Integer, primary_key=True, index=True)
@@ -93,7 +89,6 @@ class OrderItem(Base):
     order = relationship('Order', back_populates='items')
     product = relationship('Product')
 
-
 class Payment(Base):
     __tablename__ = 'payments'
     id = Column(Integer, primary_key=True, index=True)
@@ -103,7 +98,6 @@ class Payment(Base):
     status = Column(String, nullable=True)
     order = relationship('Order', back_populates='payments')
 
-
 class Delivery(Base):
     __tablename__ = 'deliveries'
     id = Column(Integer, primary_key=True, index=True)
@@ -112,3 +106,25 @@ class Delivery(Base):
     status = Column(String, nullable=True)
     delivery_address = Column(String(255), nullable=True)
     order = relationship('Order', back_populates='deliveries')
+
+# New models for chat functionality
+class Conversation(Base):
+    __tablename__ = 'conversations'
+    id = Column(Integer, primary_key=True, index=True)
+    buyer_id = Column(Integer, ForeignKey('buyers.id'))
+    farmer_id = Column(Integer, ForeignKey('farmers.id'))
+
+    buyer = relationship('Buyer', back_populates='conversations')
+    farmer = relationship('Farmer', back_populates='conversations')
+    messages = relationship('Message', back_populates='conversation')
+
+class Message(Base):
+    __tablename__ = 'messages'
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey('conversations.id'))
+    sender_id = Column(Integer, ForeignKey('users.id'))
+    content = Column(Text, nullable=False)
+    timestamp = Column(TIMESTAMP, default=datetime.utcnow, nullable=False)
+
+    conversation = relationship('Conversation', back_populates='messages')
+    sender = relationship('User', back_populates='sent_messages')

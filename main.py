@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import auth, admin, farmer, buyer, common, payments, deliveries, firebase
+from routers import auth, admin, farmer, buyer, common, payments, deliveries, firebase, chat
 from database import Base, engine
 import uvicorn
 
@@ -27,6 +27,7 @@ app.include_router(buyer.router, prefix="/buyer", tags=["Buyer"])
 app.include_router(common.router, prefix="/common", tags=["Common"])
 app.include_router(payments.router, prefix="/payments", tags=["Payments"])
 app.include_router(deliveries.router, prefix="/deliveries", tags=["Deliveries"])
+app.include_router(chat.router, prefix="/chat", tags=["Chat"])
 
 if __name__ == "__main__":
     Base.metadata.create_all(bind=engine)
